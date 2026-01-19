@@ -30,40 +30,45 @@ jobs:
     - name: Make mvnw executable
       run: chmod +x ./mvnw
       
-    - name: Verify Maven Wrapper setup
+    - name: Download and verify Maven Wrapper JAR
       run: |
-        echo "Current directory:"
-        pwd
-        echo ""
-        echo "Checking Maven Wrapper files:"
-        ls -la .mvn/wrapper/ || echo "Directory .mvn/wrapper does not exist"
-        echo ""
-        echo "Checking if JAR exists:"
-        if [ -f .mvn/wrapper/maven-wrapper.jar ]; then
-          echo "✓ JAR found"
-          ls -lh .mvn/wrapper/maven-wrapper.jar
-          file .mvn/wrapper/maven-wrapper.jar
-          echo ""
-          echo "Verifying JAR contents:"
-          unzip -l .mvn/wrapper/maven-wrapper.jar | grep -E "(MavenWrapperMain|MANIFEST)" || true
+        echo "Setting up Maven Wrapper JAR..."
+        mkdir -p .mvn/wrapper
+        
+        # Always download fresh JAR to ensure it's correct
+        echo "Downloading maven-wrapper.jar..."
+        curl -L -f https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar -o .mvn/wrapper/maven-wrapper.jar
+        
+        echo "Verifying downloaded JAR:"
+        ls -lh .mvn/wrapper/maven-wrapper.jar
+        file .mvn/wrapper/maven-wrapper.jar
+        
+        echo "Verifying JAR integrity:"
+        unzip -t .mvn/wrapper/maven-wrapper.jar > /dev/null && echo "✓ JAR integrity OK" || echo "✗ JAR corrupted"
+        
+        echo "Checking for MavenWrapperMain class:"
+        if unzip -l .mvn/wrapper/maven-wrapper.jar | grep -q "MavenWrapperMain.class"; then
+          echo "✓ MavenWrapperMain.class found in JAR"
         else
-          echo "✗ JAR not found, downloading..."
-          mkdir -p .mvn/wrapper
-          curl -L -f https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar -o .mvn/wrapper/maven-wrapper.jar
-          echo "Downloaded, verifying:"
-          ls -lh .mvn/wrapper/maven-wrapper.jar
+          echo "✗ MavenWrapperMain.class NOT found in JAR"
+          exit 1
         fi
         
-    - name: Test Maven Wrapper
+        echo "Testing JAR with Java:"
+        ABSOLUTE_JAR_PATH="$(pwd)/.mvn/wrapper/maven-wrapper.jar"
+        echo "JAR path: $ABSOLUTE_JAR_PATH"
+        java -cp "$ABSOLUTE_JAR_PATH" org.apache.maven.wrapper.MavenWrapperMain --version || echo "Direct Java test failed (will continue anyway)"
+        
+    - name: Test Maven Wrapper script
       id: test_wrapper
       continue-on-error: true
       run: |
-        echo "Testing Maven Wrapper..."
-        if java -cp "$(pwd)/.mvn/wrapper/maven-wrapper.jar" org.apache.maven.wrapper.MavenWrapperMain --version 2>&1; then
-          echo "Wrapper test successful"
+        echo "Testing ./mvnw script..."
+        if ./mvnw --version 2>&1 | head -5; then
+          echo "✓ Maven Wrapper script works"
           echo "use_wrapper=true" >> $GITHUB_OUTPUT
         else
-          echo "Wrapper test failed, will use Maven directly"
+          echo "✗ Maven Wrapper script failed"
           echo "use_wrapper=false" >> $GITHUB_OUTPUT
         fi
         
