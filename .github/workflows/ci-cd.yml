@@ -36,7 +36,7 @@ jobs:
         if ./mvnw clean compile 2>&1; then
           echo "✓ Build successful with Maven Wrapper"
         else
-          echo "Maven Wrapper failed, using Maven directly..."
+          echo "Maven Wrapper failed (expected), using Maven directly..."
           mvn clean compile
         fi
       
