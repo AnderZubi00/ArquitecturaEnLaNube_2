@@ -21,80 +21,40 @@ jobs:
         distribution: 'temurin'
         cache: maven
         
-    - name: Install Maven (fallback)
+    - name: Install Maven
       run: |
         sudo apt-get update
         sudo apt-get install -y maven
         mvn --version
         
-    - name: Make mvnw executable
-      run: chmod +x ./mvnw
+    - name: Make mvnw executable (attempt wrapper first)
+      run: chmod +x ./mvnw || echo "mvnw not found, will use Maven directly"
       
-    - name: Download and verify Maven Wrapper JAR
-      run: |
-        echo "Setting up Maven Wrapper JAR..."
-        mkdir -p .mvn/wrapper
-        
-        # Always download fresh JAR to ensure it's correct
-        echo "Downloading maven-wrapper.jar..."
-        curl -L -f https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar -o .mvn/wrapper/maven-wrapper.jar
-        
-        echo "Verifying downloaded JAR:"
-        ls -lh .mvn/wrapper/maven-wrapper.jar
-        file .mvn/wrapper/maven-wrapper.jar
-        
-        echo "Verifying JAR integrity:"
-        unzip -t .mvn/wrapper/maven-wrapper.jar > /dev/null && echo "✓ JAR integrity OK" || echo "✗ JAR corrupted"
-        
-        echo "Checking for MavenWrapperMain class:"
-        if unzip -l .mvn/wrapper/maven-wrapper.jar | grep -q "MavenWrapperMain.class"; then
-          echo "✓ MavenWrapperMain.class found in JAR"
-        else
-          echo "✗ MavenWrapperMain.class NOT found in JAR"
-          exit 1
-        fi
-        
-        echo "Testing JAR with Java:"
-        ABSOLUTE_JAR_PATH="$(pwd)/.mvn/wrapper/maven-wrapper.jar"
-        echo "JAR path: $ABSOLUTE_JAR_PATH"
-        java -cp "$ABSOLUTE_JAR_PATH" org.apache.maven.wrapper.MavenWrapperMain --version || echo "Direct Java test failed (will continue anyway)"
-        
-    - name: Test Maven Wrapper script
-      id: test_wrapper
-      continue-on-error: true
-      run: |
-        echo "Testing ./mvnw script..."
-        if ./mvnw --version 2>&1 | head -5; then
-          echo "✓ Maven Wrapper script works"
-          echo "use_wrapper=true" >> $GITHUB_OUTPUT
-        else
-          echo "✗ Maven Wrapper script failed"
-          echo "use_wrapper=false" >> $GITHUB_OUTPUT
-        fi
-        
     - name: Build with Maven
       run: |
-        if [ "${{ steps.test_wrapper.outputs.use_wrapper }}" == "true" ]; then
-          echo "Using Maven Wrapper..."
-          ./mvnw clean compile || (echo "Wrapper failed, using Maven directly" && mvn clean compile)
+        echo "Attempting to use Maven Wrapper..."
+        if ./mvnw clean compile 2>&1; then
+          echo "✓ Build successful with Maven Wrapper"
         else
-          echo "Using Maven directly..."
+          echo "Maven Wrapper failed, using Maven directly..."
           mvn clean compile
         fi
       
     - name: Run tests
       run: |
-        if [ "${{ steps.test_wrapper.outputs.use_wrapper }}" == "true" ]; then
-          ./mvnw test || mvn test
+        if ./mvnw test 2>&1; then
+          echo "✓ Tests successful with Maven Wrapper"
         else
+          echo "Using Maven directly for tests..."
           mvn test
         fi
       
     - name: Package application
       run: |
-        if [ "${{ steps.test_wrapper.outputs.use_wrapper }}" == "true" ]; then
-          ./mvnw package || mvn package
+        if ./mvnw package 2>&1; then
+          echo "✓ Package successful with Maven Wrapper"
         else
+          echo "Using Maven directly for package..."
           mvn package
         fi
       
