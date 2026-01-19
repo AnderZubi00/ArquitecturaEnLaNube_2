@@ -14,12 +14,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up JDK 17
+    - name: Set up JDK 17 and Maven
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
+        
+    - name: Install Maven (fallback)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y maven
+        mvn --version
         
     - name: Make mvnw executable
       run: chmod +x ./mvnw
@@ -48,19 +54,44 @@ jobs:
           ls -lh .mvn/wrapper/maven-wrapper.jar
         fi
         
-    - name: Test Maven Wrapper directly
+    - name: Test Maven Wrapper
+      id: test_wrapper
+      continue-on-error: true
       run: |
-        echo "Testing Maven Wrapper with Java directly:"
-        java -cp .mvn/wrapper/maven-wrapper.jar org.apache.maven.wrapper.MavenWrapperMain --version || echo "Direct test failed, will try script"
+        echo "Testing Maven Wrapper..."
+        if java -cp "$(pwd)/.mvn/wrapper/maven-wrapper.jar" org.apache.maven.wrapper.MavenWrapperMain --version 2>&1; then
+          echo "Wrapper test successful"
+          echo "use_wrapper=true" >> $GITHUB_OUTPUT
+        else
+          echo "Wrapper test failed, will use Maven directly"
+          echo "use_wrapper=false" >> $GITHUB_OUTPUT
+        fi
         
-    - name: Build with Maven Wrapper
-      run: ./mvnw clean compile
+    - name: Build with Maven
+      run: |
+        if [ "${{ steps.test_wrapper.outputs.use_wrapper }}" == "true" ]; then
+          echo "Using Maven Wrapper..."
+          ./mvnw clean compile || (echo "Wrapper failed, using Maven directly" && mvn clean compile)
+        else
+          echo "Using Maven directly..."
+          mvn clean compile
+        fi
       
     - name: Run tests
-      run: ./mvnw test
+      run: |
+        if [ "${{ steps.test_wrapper.outputs.use_wrapper }}" == "true" ]; then
+          ./mvnw test || mvn test
+        else
+          mvn test
+        fi
       
     - name: Package application
-      run: ./mvnw package
+      run: |
+        if [ "${{ steps.test_wrapper.outputs.use_wrapper }}" == "true" ]; then
+          ./mvnw package || mvn package
+        else
+          mvn package
+        fi
       
     - name: Upload JAR artifact
       uses: actions/upload-artifact@v4
