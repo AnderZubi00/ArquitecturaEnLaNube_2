@@ -24,16 +24,36 @@ jobs:
     - name: Make mvnw executable
       run: chmod +x ./mvnw
       
-    - name: Verify Maven Wrapper JAR exists
+    - name: Verify Maven Wrapper setup
       run: |
-        if [ ! -f .mvn/wrapper/maven-wrapper.jar ]; then
-          echo "Downloading maven-wrapper.jar..."
+        echo "Current directory:"
+        pwd
+        echo ""
+        echo "Checking Maven Wrapper files:"
+        ls -la .mvn/wrapper/ || echo "Directory .mvn/wrapper does not exist"
+        echo ""
+        echo "Checking if JAR exists:"
+        if [ -f .mvn/wrapper/maven-wrapper.jar ]; then
+          echo "✓ JAR found"
+          ls -lh .mvn/wrapper/maven-wrapper.jar
+          file .mvn/wrapper/maven-wrapper.jar
+          echo ""
+          echo "Verifying JAR contents:"
+          unzip -l .mvn/wrapper/maven-wrapper.jar | grep -E "(MavenWrapperMain|MANIFEST)" || true
+        else
+          echo "✗ JAR not found, downloading..."
           mkdir -p .mvn/wrapper
-          curl -L https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar -o .mvn/wrapper/maven-wrapper.jar
+          curl -L -f https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar -o .mvn/wrapper/maven-wrapper.jar
+          echo "Downloaded, verifying:"
+          ls -lh .mvn/wrapper/maven-wrapper.jar
         fi
-        ls -lh .mvn/wrapper/maven-wrapper.jar
-      
-    - name: Build with Maven
+        
+    - name: Test Maven Wrapper directly
+      run: |
+        echo "Testing Maven Wrapper with Java directly:"
+        java -cp .mvn/wrapper/maven-wrapper.jar org.apache.maven.wrapper.MavenWrapperMain --version || echo "Direct test failed, will try script"
+        
+    - name: Build with Maven Wrapper
       run: ./mvnw clean compile
       
     - name: Run tests
@@ -86,4 +106,3 @@ jobs:
         region: us-east-1
         deployment_package: target/deploy.zip
         wait_for_environment_update: true
-
