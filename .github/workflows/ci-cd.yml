@@ -21,42 +21,25 @@ jobs:
         distribution: 'temurin'
         cache: maven
         
-    - name: Install Maven
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y maven
-        mvn --version
-        
-    - name: Make mvnw executable (attempt wrapper first)
-      run: chmod +x ./mvnw || echo "mvnw not found, will use Maven directly"
+    - name: Make mvnw executable
+      run: chmod +x ./mvnw
       
-    - name: Build with Maven
+    - name: Verify Maven Wrapper
       run: |
-        echo "Attempting to use Maven Wrapper..."
-        if ./mvnw clean compile 2>&1; then
-          echo "✓ Build successful with Maven Wrapper"
-        else
-          echo "Maven Wrapper failed (expected), using Maven directly..."
-          mvn clean compile
-        fi
+        echo "Verifying Maven Wrapper setup..."
+        ls -la .mvn/wrapper/
+        echo ""
+        echo "Testing Maven Wrapper..."
+        ./mvnw --version
+      
+    - name: Build with Maven Wrapper
+      run: ./mvnw clean compile
       
     - name: Run tests
-      run: |
-        if ./mvnw test 2>&1; then
-          echo "✓ Tests successful with Maven Wrapper"
-        else
-          echo "Using Maven directly for tests..."
-          mvn test
-        fi
+      run: ./mvnw test
       
     - name: Package application
-      run: |
-        if ./mvnw package 2>&1; then
-          echo "✓ Package successful with Maven Wrapper"
-        else
-          echo "Using Maven directly for package..."
-          mvn package
-        fi
+      run: ./mvnw package
       
     - name: Upload JAR artifact
       uses: actions/upload-artifact@v4
