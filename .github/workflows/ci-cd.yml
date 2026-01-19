@@ -24,6 +24,15 @@ jobs:
     - name: Make mvnw executable
       run: chmod +x ./mvnw
       
+    - name: Verify Maven Wrapper JAR exists
+      run: |
+        if [ ! -f .mvn/wrapper/maven-wrapper.jar ]; then
+          echo "Downloading maven-wrapper.jar..."
+          mkdir -p .mvn/wrapper
+          curl -L https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar -o .mvn/wrapper/maven-wrapper.jar
+        fi
+        ls -lh .mvn/wrapper/maven-wrapper.jar
+      
     - name: Build with Maven
       run: ./mvnw clean compile
       
